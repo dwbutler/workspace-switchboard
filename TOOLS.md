@@ -31,23 +31,30 @@ When provisioning a new agent:
 
 ## Filesystem Constraints
 
-**Read-only filesystem** with one exception: a write-only dropbox directory mounted into the container.
+**Two modes: local and deployed.**
+
+### Local (development)
+Normal filesystem access. The `drop/` directory is just a local folder (`./drop` by default).
+Run it, test it, inspect outputs. No sandbox constraints.
+
+### Deployed (production container)
+Read-only filesystem with one exception: a write-only `drop` directory mounted into the container.
 
 - The agent **cannot read from disk** (no session state, no cached data, no config files)
-- The agent **can write to `/dropbox/`** (or whatever path is mounted) — but cannot read back what it wrote
-- Write-only mount: outputs go in, the agent can't see them again
+- The agent **can write to `drop/`** — but cannot read back what it wrote
+- Write-only mount: outputs land there, the operator picks them up from outside
 - Conversation state is in-memory only — ephemeral, isolated per session
+- The agent structurally cannot accumulate or exfiltrate user data
 
-**What goes into `/dropbox/`:**
+**What goes into `drop/`:**
 - Provisioned workspace outputs (`.switchboard/` directories, `openclaw.json.template`)
 - Audit reports
-- Anything the operator or user needs to retrieve after the session
+- Anything the user or operator needs to retrieve after the session
 
-**Implications for code:**
-- `KBWriter.write()` targets the dropbox mount path (env var: `DROPBOX_PATH`, default `/dropbox`)
-- No `~/.switchboard/config.json` — all config via env vars
+**Code contract:**
+- `KBWriter.write()` targets the drop path (env var: `DROP_PATH`, default `./drop`)
+- No config files on disk — all config via env vars
 - Audit session state is ephemeral; if a user drops off, they start over
-- The agent cannot exfiltrate or accumulate data — it literally can't read what it wrote
 
 ## Credentials
 
