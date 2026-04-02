@@ -31,17 +31,23 @@ When provisioning a new agent:
 
 ## Filesystem Constraints
 
-**Read-only filesystem.** This agent cannot write to disk except via Dropbox.
+**Read-only filesystem** with one exception: a write-only dropbox directory mounted into the container.
 
-- No local file writes (no logs, no temp files, no KB caching to disk)
-- **Dropbox** is the only write surface — used for provisioned workspace outputs and reports
-- All synthesized KB workspaces are written to Dropbox and a download link returned to the user
-- Conversation state is in-memory only — no session persistence between messages unless authenticated
+- The agent **cannot read from disk** (no session state, no cached data, no config files)
+- The agent **can write to `/dropbox/`** (or whatever path is mounted) — but cannot read back what it wrote
+- Write-only mount: outputs go in, the agent can't see them again
+- Conversation state is in-memory only — ephemeral, isolated per session
 
-Implications for code:
-- `KBWriter.write()` must target Dropbox, not local filesystem
-- No `~/.switchboard/config.json` — config comes from env vars
-- Audit session state is ephemeral; if the user drops off, they start over
+**What goes into `/dropbox/`:**
+- Provisioned workspace outputs (`.switchboard/` directories, `openclaw.json.template`)
+- Audit reports
+- Anything the operator or user needs to retrieve after the session
+
+**Implications for code:**
+- `KBWriter.write()` targets the dropbox mount path (env var: `DROPBOX_PATH`, default `/dropbox`)
+- No `~/.switchboard/config.json` — all config via env vars
+- Audit session state is ephemeral; if a user drops off, they start over
+- The agent cannot exfiltrate or accumulate data — it literally can't read what it wrote
 
 ## Credentials
 
